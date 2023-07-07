@@ -9,19 +9,18 @@ const {
   unAssignTask,
   updateStatusOfTask,
 } = require("../controllers/task.controllers");
+
 //Read
 /**
  * @route GET api/tasks
  * @description Get a list of Tasks
- * @access private
  * @allowedQueries: status,page,limit
  */
-
 router.get("/", getTasks); 
+
 /**
  * @route GET api/tasks
  * @description Get a task by _id
- * @access private
  * params : _id of task
  */
 router.get("/:taskId", getTaskById);
@@ -30,17 +29,37 @@ router.get("/:taskId", getTaskById);
 /**
  * @route POST api/tasks
  * @description Create a new task
- * @access private, manager
  * @requiredBody: name,description, status default "pending", option assignee
  */
 router.post("/", createTask);
 
-//Assignee task to User
+// Update
+/**
+ * @route PUT api/tasks
+ * @description assign task to user 
+ * @requiredBody: userId, taskId
+ */
 router.put("/assigntask", assignTask);
-//Assignee task to User
+
+/**
+ * @route PUT api/tasks
+ * @description unassign task to user 
+ * @requiredBody: taskId
+ */
 router.put("/unassigntask",unAssignTask);
-// updtae status
+
+/**
+ * @route PUT api/tasks
+ * @description update status task
+ * @requiredBody: status 
+ */
 router.put("/:taskId", updateStatusOfTask);
-//Delete
+
+/**
+ * @route DELETE  api/tasks
+ * @description delete a task 
+ */
 router.delete("/:taskId", deleteTask);
+
+// export router
 module.exports = router;
