@@ -50,7 +50,7 @@ taskController.getTasks = async (req, res, next) => {
       if (!filterQuery[key]) delete filterQuery[key];
     });
     if (status) {
-      const tasks = await Tasks.find({ status: `${status}` }).sort({
+      let tasks = await Tasks.find({ status: `${status}` }).sort({
         updatedAt: -1,
       });
       tasks = tasks.filter((task) => task.isDeleted === false);
