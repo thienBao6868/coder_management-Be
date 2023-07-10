@@ -67,10 +67,15 @@ userController.getAllTasksOfUser = async (req, res, next) => {
   const { userId } = req.params;
 
   try {
-    if (!isValidObjectId(userId )) {
+    if (!isValidObjectId(userId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
-    const allTasksOfUser = await Tasks.find({ assignee: `${userId}` })
+    // check user existence
+    const user = await Users.find({ _id: userId }).populate("tasks");
+    if (user.length === 0) {
+      throw new AppError(400, "User not Existence", "Bad request");
+    }
+    let allTasksOfUser = user[0].tasks;
     sendResponse(
       res,
       200,

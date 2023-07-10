@@ -9,6 +9,7 @@ const userSchema = mongoose.Schema(
       default: "employee",
       required: true,
     },
+    tasks:[{ type: mongoose.SchemaTypes.ObjectId, ref: "Task"}]
   },
   { timestamps: true }
 );

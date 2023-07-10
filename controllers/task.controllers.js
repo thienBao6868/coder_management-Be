@@ -76,8 +76,6 @@ taskController.getTasks = async (req, res, next) => {
         "get list tasks successfully"
       );
     }
-
-    res.status(200).send("done");
   } catch (error) {
     next(error);
   }
@@ -91,7 +89,14 @@ taskController.getTaskById = async (req, res, next) => {
     if (!isValidObjectId(taskId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
-    const task = await Tasks.findOne({ _id: `${taskId}` }).populate("assignee");
+    // Get task by _id
+    const task = await Tasks.find({ _id: `${taskId}` }).populate("assignee");
+    if (task.length === 0) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    if (task[0].isDeleted === true) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
     sendResponse(res, 200, true, { task }, null, "get task by Id successfully");
   } catch (error) {
     next(error);
@@ -102,19 +107,44 @@ taskController.getTaskById = async (req, res, next) => {
 taskController.assignTask = async (req, res, next) => {
   let { userId, taskId } = req.body;
   try {
+    // validate taskId and userId
     if (!isValidObjectId(taskId) || !isValidObjectId(userId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
-    const assignTasktoUser = await Tasks.findByIdAndUpdate(
+    // check existence task
+    const task = await Tasks.find({ _id: `${taskId}` });
+    if (task.length === 0) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    if (task[0].isDeleted === true) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    // check task have been assignee
+    if (task.assignee) {
+      throw new AppError(400, "Task have been assignee", "Bad Request");
+    }
+    // check user existence
+    const user = Users.find({ _id: userId });
+    if (user.length === 0) {
+      throw new AppError(400, "User not Existence", "Bad request");
+    }
+    // assign Task
+    const assignTaskOfTasksCollection = await Tasks.findByIdAndUpdate(
       taskId,
       { assignee: userId },
       { new: true }
     );
+    const assignTaskOfUsersCollection = await Users.findByIdAndUpdate(
+      userId,
+      { $push: { tasks: taskId } },
+      { new: true }
+    );
+
     sendResponse(
       res,
       200,
       true,
-      { assignTasktoUser },
+      { assignTaskOfTasksCollection, assignTaskOfUsersCollection },
       null,
       "Assign a task to a user successfully"
     );
@@ -125,21 +155,51 @@ taskController.assignTask = async (req, res, next) => {
 
 //Unassign a task to user
 taskController.unAssignTask = async (req, res, next) => {
-  let { taskId } = req.body;
+  let { taskId, userId } = req.body;
   try {
     if (!isValidObjectId(taskId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
-    const unAssignTasktoUser = await Tasks.findByIdAndUpdate(
+    // check existence task
+    const task = await Tasks.find({ _id: `${taskId}` });
+    if (task.length === 0) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    if (task[0].isDeleted === true) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    // check task don't have assignee
+    if (!task.assignee) {
+      throw new AppError(400, "Task don't have assignee", "Bad Request");
+    }
+    // check user existence
+    const user = await Users.find({ _id: userId });
+
+    let alltask = user[0].tasks;
+    alltask = alltask.map((taskid) => taskid.toString());
+    alltask = alltask.filter((taskid) => taskid !== taskId);
+
+    if (user.length === 0) {
+      throw new AppError(400, "User not Existence", "Bad request");
+    }
+    // unsign Task of TasksCollection
+    const unAssignTaskOfTasksCollection = await Tasks.findByIdAndUpdate(
       taskId,
       { $unset: { assignee: 1 } },
+      { new: true }
+    );
+    // unsign Task of Users Collection
+
+    const unAssignTaskOfUsersCollection = await Users.findByIdAndUpdate(
+      userId,
+      { tasks: alltask },
       { new: true }
     );
     sendResponse(
       res,
       200,
       true,
-      { unAssignTasktoUser },
+      { unAssignTaskOfTasksCollection, unAssignTaskOfUsersCollection },
       null,
       "UnAssign a task to a user successfully"
     );
@@ -158,13 +218,21 @@ taskController.updateStatusOfTask = async (req, res, next) => {
     if (!isValidObjectId(taskId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
+    // check existence task
+    const taskEx = await Tasks.find({ _id: `${taskId}` });
+    if (taskEx.length === 0) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    if (taskEx[0].isDeleted === true) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
     // validate status
     allowedStatus.forEach((key) => {
       if (!allowedStatus.includes(status)) {
         throw new AppError(400, "Don't allow status", "Bad Request");
       }
     });
-    //
+    //update status
     let task = await Tasks.findById(taskId);
     if (task.status === "done") {
       if (status !== "archive") {
@@ -203,6 +271,15 @@ taskController.deleteTask = async (req, res, next) => {
     if (!isValidObjectId(taskId)) {
       throw new AppError(400, "_id is require objectId", "Bad Request");
     }
+    // check existence task
+    const task = await Tasks.find({ _id: `${taskId}` });
+    if (task.length === 0) {
+      throw new AppError(404, "Not Found Task", "Bad Request");
+    }
+    if (task[0].isDeleted === true) {
+      throw new AppError(404, "Task have been deleted", "Bad Request");
+    }
+    //
     let taskIsDeleted = await Tasks.findOneAndUpdate(
       { _id: taskId },
       { isDeleted: true },
